@@ -38,6 +38,16 @@
 #include "utils.h"
 
 namespace double_conversion {
+	
+const int DoubleToStringConverter::kMaxFixedDigitsBeforePoint = 60;
+const int DoubleToStringConverter::kMaxFixedDigitsAfterPoint = 100;
+const int DoubleToStringConverter::kMaxExponentialDigits = 120;
+const int DoubleToStringConverter::kMinPrecisionDigits = 1;
+const int DoubleToStringConverter::kMaxPrecisionDigits = 120;
+const int DoubleToStringConverter::kBase10MaximalLength = 17;
+const int DoubleToStringConverter::kBase10MaximalLengthSingle = 9;
+const int DoubleToStringConverter::kMaxCharsEcmaScriptShortest = 25;
+
 
 const DoubleToStringConverter& DoubleToStringConverter::EcmaScriptConverter() {
   int flags = UNIQUE_ZERO | EMIT_POSITIVE_EXPONENT_SIGN;

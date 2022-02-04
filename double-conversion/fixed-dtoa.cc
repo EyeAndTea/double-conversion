@@ -107,12 +107,12 @@ class UInt128 {
   }
 
  private:
-  static const uint64_t kMask32 = 0xFFFFFFFF;
+  static const uint64_t kMask32;
   // Value == (high_bits_ << 64) + low_bits_
   uint64_t high_bits_;
   uint64_t low_bits_;
 };
-
+const uint64_t UInt128::kMask32 = 0xFFFFFFFF;
 
 static const int kDoubleSignificandSize = 53;  // Includes the hidden bit.
 

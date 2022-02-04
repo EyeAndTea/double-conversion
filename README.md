@@ -1,3 +1,32 @@
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+(WARNING: ABOUT THIS FORK)
+
+This fork was for getting the library to work under Visual Studio 6 primarily, but
+likely to improve compatibility with compilers in general. The changes here
+are likely to damage the accuracy of the official implementation. If you wish
+to deduce how this might, or might not, affect you, note the following for
+pertaining changes:
+
+- File "double-conversion/string-to-double.cc": Search for
+		::std::tolower(ch, ::std::locale(""));
+- File "double-conversion/string-to-double.cc": The functions 
+		StringToDoubleConverter::StringTo() were disabled. Examine 
+- File "double-conversion/strtod.cc": The private function 
+		convertUnsignedInt64ToDouble(unsigned __int64) introduced to be used
+		instead of static_cast<double>(unsigned __int64 t). This might 
+		slightly affect performance on newer compilers. On Visual Studio 6, 
+		in particular, this might give incorrect results.
+
+Finally, note that tests were not updated to reflect the changes.
+
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+-----------------------------------------------------------------------------
+
+
+
 https://github.com/google/double-conversion
 
 This project (double-conversion) provides binary-decimal and decimal-binary

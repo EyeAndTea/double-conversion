@@ -284,7 +284,8 @@ static void GenerateCountedDigits(int count, int* decimal_point,
                                   Bignum* numerator, Bignum* denominator,
                                   Vector<char> buffer, int* length) {
   DOUBLE_CONVERSION_ASSERT(count >= 0);
-  for (int i = 0; i < count - 1; ++i) {
+  int i = 0;
+  for (i = 0; i < count - 1; ++i) {
     uint16_t digit;
     digit = numerator->DivideModuloIntBignum(*denominator);
     DOUBLE_CONVERSION_ASSERT(digit <= 9);  // digit is a uint16_t and therefore always positive.
@@ -304,7 +305,7 @@ static void GenerateCountedDigits(int count, int* decimal_point,
   buffer[count - 1] = static_cast<char>(digit + '0');
   // Correct bad digits (in case we had a sequence of '9's). Propagate the
   // carry until we hat a non-'9' or til we reach the first digit.
-  for (int i = count - 1; i > 0; --i) {
+  for (i = count - 1; i > 0; --i) {
     if (buffer[i] != '0' + 10) break;
     buffer[i] = '0';
     buffer[i - 1]++;

@@ -37,7 +37,7 @@ class Bignum {
   // 3584 = 128 * 28. We can represent 2^3584 > 10^1000 accurately.
   // This bignum can encode much bigger numbers, since it contains an
   // exponent.
-  static const int kMaxSignificantBits = 3584;
+  static const int kMaxSignificantBits;
 
   Bignum() : used_bigits_(0), exponent_(0) {}
 
@@ -60,7 +60,7 @@ class Bignum {
   void MultiplyByUInt32(const uint32_t factor);
   void MultiplyByUInt64(const uint64_t factor);
   void MultiplyByPowerOfTen(const int exponent);
-  void Times10() { return MultiplyByUInt32(10); }
+  void Times10() { /*return*/ MultiplyByUInt32(10); }
   // Pseudocode:
   //  int result = this / other;
   //  this = this % other;
@@ -101,15 +101,16 @@ class Bignum {
   typedef uint32_t Chunk;
   typedef uint64_t DoubleChunk;
 
-  static const int kChunkSize = sizeof(Chunk) * 8;
-  static const int kDoubleChunkSize = sizeof(DoubleChunk) * 8;
+  static const int kChunkSize;
+  static const int kDoubleChunkSize;
   // With bigit size of 28 we loose some bits, but a double still fits easily
   // into two chunks, and more importantly we can use the Comba multiplication.
-  static const int kBigitSize = 28;
-  static const Chunk kBigitMask = (1 << kBigitSize) - 1;
+  static const int kBigitSize;
+  static const Chunk kBigitMask;
   // Every instance allocates kBigitLength chunks on the stack. Bignums cannot
   // grow. There are no checks if the stack-allocated space is sufficient.
-  static const int kBigitCapacity = kMaxSignificantBits / kBigitSize;
+  static const int kBigitCapacity;
+  #define DOUBLE_CONVERSION__BIGNUM__kBigitCapacity (3584 / 28)
 
   static void EnsureCapacity(const int size) {
     if (size > kBigitCapacity) {
@@ -142,7 +143,7 @@ class Bignum {
   // significant bits.
   int16_t used_bigits_;
   int16_t exponent_;
-  Chunk bigits_buffer_[kBigitCapacity];
+  Chunk bigits_buffer_[DOUBLE_CONVERSION__BIGNUM__kBigitCapacity];
 
   DOUBLE_CONVERSION_DISALLOW_COPY_AND_ASSIGN(Bignum);
 };

@@ -41,15 +41,15 @@ static float uint32_to_float(uint32_t d32) { return BitCast<float>(d32); }
 // Helper functions for doubles.
 class Double {
  public:
-  static const uint64_t kSignMask = DOUBLE_CONVERSION_UINT64_2PART_C(0x80000000, 00000000);
-  static const uint64_t kExponentMask = DOUBLE_CONVERSION_UINT64_2PART_C(0x7FF00000, 00000000);
-  static const uint64_t kSignificandMask = DOUBLE_CONVERSION_UINT64_2PART_C(0x000FFFFF, FFFFFFFF);
-  static const uint64_t kHiddenBit = DOUBLE_CONVERSION_UINT64_2PART_C(0x00100000, 00000000);
-  static const uint64_t kQuietNanBit = DOUBLE_CONVERSION_UINT64_2PART_C(0x00080000, 00000000);
-  static const int kPhysicalSignificandSize = 52;  // Excludes the hidden bit.
-  static const int kSignificandSize = 53;
-  static const int kExponentBias = 0x3FF + kPhysicalSignificandSize;
-  static const int kMaxExponent = 0x7FF - kExponentBias;
+  static const uint64_t kSignMask;
+  static const uint64_t kExponentMask;
+  static const uint64_t kSignificandMask;
+  static const uint64_t kHiddenBit;
+  static const uint64_t kQuietNanBit;
+  static const int kPhysicalSignificandSize;  // Excludes the hidden bit.
+  static const int kSignificandSize;
+  static const int kExponentBias;
+  static const int kMaxExponent;
 
   Double() : d64_(0) {}
   explicit Double(double d) : d64_(double_to_uint64(d)) {}
@@ -242,12 +242,12 @@ class Double {
   }
 
  private:
-  static const int kDenormalExponent = -kExponentBias + 1;
-  static const uint64_t kInfinity = DOUBLE_CONVERSION_UINT64_2PART_C(0x7FF00000, 00000000);
+  static const int kDenormalExponent;
+  static const uint64_t kInfinity;
 #if (defined(__mips__) && !defined(__mips_nan2008)) || defined(__hppa__)
-  static const uint64_t kNaN = DOUBLE_CONVERSION_UINT64_2PART_C(0x7FF7FFFF, FFFFFFFF);
+  static const uint64_t kNaN;
 #else
-  static const uint64_t kNaN = DOUBLE_CONVERSION_UINT64_2PART_C(0x7FF80000, 00000000);
+  static const uint64_t kNaN;
 #endif
 
 
@@ -285,13 +285,13 @@ class Double {
 
 class Single {
  public:
-  static const uint32_t kSignMask = 0x80000000;
-  static const uint32_t kExponentMask = 0x7F800000;
-  static const uint32_t kSignificandMask = 0x007FFFFF;
-  static const uint32_t kHiddenBit = 0x00800000;
-  static const uint32_t kQuietNanBit = 0x00400000;
-  static const int kPhysicalSignificandSize = 23;  // Excludes the hidden bit.
-  static const int kSignificandSize = 24;
+  static const uint32_t kSignMask;
+  static const uint32_t kExponentMask;
+  static const uint32_t kSignificandMask;
+  static const uint32_t kHiddenBit;
+  static const uint32_t kQuietNanBit;
+  static const int kPhysicalSignificandSize;  // Excludes the hidden bit.
+  static const int kSignificandSize;
 
   Single() : d32_(0) {}
   explicit Single(float f) : d32_(float_to_uint32(f)) {}
@@ -427,14 +427,14 @@ class Single {
   }
 
  private:
-  static const int kExponentBias = 0x7F + kPhysicalSignificandSize;
-  static const int kDenormalExponent = -kExponentBias + 1;
-  static const int kMaxExponent = 0xFF - kExponentBias;
-  static const uint32_t kInfinity = 0x7F800000;
+  static const int kExponentBias;
+  static const int kDenormalExponent;
+  static const int kMaxExponent;
+  static const uint32_t kInfinity;
 #if (defined(__mips__) && !defined(__mips_nan2008)) || defined(__hppa__)
-  static const uint32_t kNaN = 0x7FBFFFFF;
+  static const uint32_t kNaN;
 #else
-  static const uint32_t kNaN = 0x7FC00000;
+  static const uint32_t kNaN;
 #endif
 
   const uint32_t d32_;

@@ -35,6 +35,22 @@
 
 namespace double_conversion {
 
+//REF (https://groups.google.com/g/microsoft.public.vc.language/c/yZ8Jki4t9f4#bc907a3438266e86) (see ui64ToDouble)
+static double convertUnsignedInt64ToDouble(unsigned __int64 ui64)
+{
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  __int64 i64 = (ui64 & 0x7FFFFFFFFFFFFFF);
+  double dbl = (double) i64;
+
+  if (ui64 & 0x8000000000000000)
+    {dbl += (double) 0x8000000000000000;}
+
+  return dbl;
+#else
+  return static_cast<double>(ui64);
+#endif
+}
+
 #if defined(DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS)
 // 2^53 = 9007199254740992.
 // Any integer with at most 15 decimal digits will hence fit into a double
@@ -211,14 +227,14 @@ static bool DoubleStrtod(Vector<const char> trimmed,
     // return the best possible approximation.
     if (exponent < 0 && -exponent < kExactPowersOfTenSize) {
       // 10^-exponent fits into a double.
-      *result = static_cast<double>(ReadUint64(trimmed, &read_digits));
+      *result = convertUnsignedInt64ToDouble(ReadUint64(trimmed, &read_digits));
       DOUBLE_CONVERSION_ASSERT(read_digits == trimmed.length());
       *result /= exact_powers_of_ten[-exponent];
       return true;
     }
     if (0 <= exponent && exponent < kExactPowersOfTenSize) {
       // 10^exponent fits into a double.
-      *result = static_cast<double>(ReadUint64(trimmed, &read_digits));
+      *result = convertUnsignedInt64ToDouble(ReadUint64(trimmed, &read_digits));
       DOUBLE_CONVERSION_ASSERT(read_digits == trimmed.length());
       *result *= exact_powers_of_ten[exponent];
       return true;
@@ -230,7 +246,7 @@ static bool DoubleStrtod(Vector<const char> trimmed,
       // The trimmed string was short and we can multiply it with
       // 10^remaining_digits. As a result the remaining exponent now fits
       // into a double too.
-      *result = static_cast<double>(ReadUint64(trimmed, &read_digits));
+      *result = convertUnsignedInt64ToDouble(ReadUint64(trimmed, &read_digits));
       DOUBLE_CONVERSION_ASSERT(read_digits == trimmed.length());
       *result *= exact_powers_of_ten[remaining_digits];
       *result *= exact_powers_of_ten[exponent - remaining_digits];

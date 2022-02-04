@@ -52,9 +52,13 @@ namespace double_conversion {
 namespace {
 
 inline char ToLower(char ch) {
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  return ::std::tolower(ch, ::std::locale(""));
+#else
   static const std::ctype<char>& cType =
       std::use_facet<std::ctype<char> >(std::locale::classic());
   return cType.tolower(ch);
+#endif
 }
 
 inline char Pass(char ch) {
@@ -98,6 +102,8 @@ inline bool ConsumeFirstCharacter(char ch,
   return case_insensitivity ? ToLower(ch) == str[0] : ch == str[0];
 }
 }  // namespace
+
+const uc16 StringToDoubleConverter::kNoSeparator = '\0';
 
 // Maximum number of significant digits in decimal representation.
 // The longest possible double in decimal representation is
@@ -745,12 +751,682 @@ double StringToDoubleConverter::StringToIeee(
   return sign? -converted: converted;
 }
 
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+/*IMPORTANT: THE FOLLOWING THREE FUNCTIONS ARE VERBATIM OF
+      template <class Iterator>
+      double StringToDoubleConverter::StringToIeee(
+          Iterator input,
+          int length, bool read_as_double, 
+          int* processed_characters_count) const
+  WITH TEMPLATE ARGUMENT MANUALLY SET IN THE CODE
+*/
+double StringToDoubleConverter::StringToIeee__char(
+    char const * input,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const {
+  char const * current = input;
+  char const * end = input + length;
+
+  *processed_characters_count = 0;
+
+  const bool allow_trailing_junk = (flags_ & ALLOW_TRAILING_JUNK) != 0;
+  const bool allow_leading_spaces = (flags_ & ALLOW_LEADING_SPACES) != 0;
+  const bool allow_trailing_spaces = (flags_ & ALLOW_TRAILING_SPACES) != 0;
+  const bool allow_spaces_after_sign = (flags_ & ALLOW_SPACES_AFTER_SIGN) != 0;
+  const bool allow_case_insensitivity = (flags_ & ALLOW_CASE_INSENSITIVITY) != 0;
+
+  // To make sure that iterator dereferencing is valid the following
+  // convention is used:
+  // 1. Each '++current' statement is followed by check for equality to 'end'.
+  // 2. If AdvanceToNonspace returned false then current == end.
+  // 3. If 'current' becomes equal to 'end' the function returns or goes to
+  // 'parsing_done'.
+  // 4. 'current' is not dereferenced after the 'parsing_done' label.
+  // 5. Code before 'parsing_done' may rely on 'current != end'.
+  if (current == end) return empty_string_value_;
+
+  if (allow_leading_spaces || allow_trailing_spaces) {
+    if (!AdvanceToNonspace(&current, end)) {
+      *processed_characters_count = static_cast<int>(current - input);
+      return empty_string_value_;
+    }
+    if (!allow_leading_spaces && (input != current)) {
+      // No leading spaces allowed, but AdvanceToNonspace moved forward.
+      return junk_string_value_;
+    }
+  }
+
+  // Exponent will be adjusted if insignificant digits of the integer part
+  // or insignificant leading zeros of the fractional part are dropped.
+  int exponent = 0;
+  int significant_digits = 0;
+  int insignificant_digits = 0;
+  bool nonzero_digit_dropped = false;
+
+  bool sign = false;
+
+  if (*current == '+' || *current == '-') {
+    sign = (*current == '-');
+    ++current;
+    char const * next_non_space = current;
+    // Skip following spaces (if allowed).
+    if (!AdvanceToNonspace(&next_non_space, end)) return junk_string_value_;
+    if (!allow_spaces_after_sign && (current != next_non_space)) {
+      return junk_string_value_;
+    }
+    current = next_non_space;
+  }
+
+  if (infinity_symbol_ != NULL) {
+    if (ConsumeFirstCharacter(*current, infinity_symbol_, allow_case_insensitivity)) {
+      if (!ConsumeSubString(&current, end, infinity_symbol_, allow_case_insensitivity)) {
+        return junk_string_value_;
+      }
+
+      if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+        return junk_string_value_;
+      }
+      if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+        return junk_string_value_;
+      }
+
+      *processed_characters_count = static_cast<int>(current - input);
+      return sign ? -Double::Infinity() : Double::Infinity();
+    }
+  }
+
+  if (nan_symbol_ != NULL) {
+    if (ConsumeFirstCharacter(*current, nan_symbol_, allow_case_insensitivity)) {
+      if (!ConsumeSubString(&current, end, nan_symbol_, allow_case_insensitivity)) {
+        return junk_string_value_;
+      }
+
+      if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+        return junk_string_value_;
+      }
+      if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+        return junk_string_value_;
+      }
+
+      *processed_characters_count = static_cast<int>(current - input);
+      return sign ? -Double::NaN() : Double::NaN();
+    }
+  }
+
+  bool leading_zero = false;
+  if (*current == '0') {
+    if (Advance(&current, separator_, 10, end)) {
+      *processed_characters_count = static_cast<int>(current - input);
+      return SignedZero(sign);
+    }
+
+    leading_zero = true;
+
+    // It could be hexadecimal value.
+    if (((flags_ & ALLOW_HEX) || (flags_ & ALLOW_HEX_FLOATS)) &&
+        (*current == 'x' || *current == 'X')) {
+      ++current;
+
+      if (current == end) return junk_string_value_;  // "0x"
+
+      bool parse_as_hex_float = (flags_ & ALLOW_HEX_FLOATS) &&
+                IsHexFloatString(current, end, separator_, allow_trailing_junk);
+
+      if (!parse_as_hex_float && !isDigit(*current, 16)) {
+        return junk_string_value_;
+      }
+
+      bool result_is_junk;
+      double result = RadixStringToIeee<4>(&current,
+                                           end,
+                                           sign,
+                                           separator_,
+                                           parse_as_hex_float,
+                                           allow_trailing_junk,
+                                           junk_string_value_,
+                                           read_as_double,
+                                           &result_is_junk);
+      if (!result_is_junk) {
+        if (allow_trailing_spaces) AdvanceToNonspace(&current, end);
+        *processed_characters_count = static_cast<int>(current - input);
+      }
+      return result;
+    }
+
+    // Ignore leading zeros in the integer part.
+    while (*current == '0') {
+      if (Advance(&current, separator_, 10, end)) {
+        *processed_characters_count = static_cast<int>(current - input);
+        return SignedZero(sign);
+      }
+    }
+  }
+
+  bool octal = leading_zero && (flags_ & ALLOW_OCTALS) != 0;
+
+  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
+  const int kBufferSize = kMaxSignificantDigits + 10;
+  DOUBLE_CONVERSION_STACK_UNINITIALIZED char
+      buffer[kBufferSize];  // NOLINT: size is known at compile time.
+  int buffer_pos = 0;
+
+  // Copy significant digits of the integer part (if any) to the buffer.
+  while (*current >= '0' && *current <= '9') {
+    if (significant_digits < kMaxSignificantDigits) {
+      DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+      buffer[buffer_pos++] = static_cast<char>(*current);
+      significant_digits++;
+      // Will later check if it's an octal in the buffer.
+    } else {
+      insignificant_digits++;  // Move the digit into the exponential part.
+      nonzero_digit_dropped = nonzero_digit_dropped || *current != '0';
+    }
+    octal = octal && *current < '8';
+    if (Advance(&current, separator_, 10, end)) goto parsing_done;
+  }
+
+  if (significant_digits == 0) {
+    octal = false;
+  }
+
+  if (*current == '.') {
+    if (octal && !allow_trailing_junk) return junk_string_value_;
+    if (octal) goto parsing_done;
+
+    if (Advance(&current, separator_, 10, end)) {
+      if (significant_digits == 0 && !leading_zero) {
+        return junk_string_value_;
+      } else {
+        goto parsing_done;
+      }
+    }
+
+    if (significant_digits == 0) {
+      // octal = false;
+      // Integer part consists of 0 or is absent. Significant digits start after
+      // leading zeros (if any).
+      while (*current == '0') {
+        if (Advance(&current, separator_, 10, end)) {
+          *processed_characters_count = static_cast<int>(current - input);
+          return SignedZero(sign);
+        }
+        exponent--;  // Move this 0 into the exponent.
+      }
+    }
+
+    // There is a fractional part.
+    // We don't emit a '.', but adjust the exponent instead.
+    while (*current >= '0' && *current <= '9') {
+      if (significant_digits < kMaxSignificantDigits) {
+        DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+        buffer[buffer_pos++] = static_cast<char>(*current);
+        significant_digits++;
+        exponent--;
+      } else {
+        // Ignore insignificant digits in the fractional part.
+        nonzero_digit_dropped = nonzero_digit_dropped || *current != '0';
+      }
+      if (Advance(&current, separator_, 10, end)) goto parsing_done;
+    }
+  }
+
+  if (!leading_zero && exponent == 0 && significant_digits == 0) {
+    // If leading_zeros is true then the string contains zeros.
+    // If exponent < 0 then string was [+-]\.0*...
+    // If significant_digits != 0 the string is not equal to 0.
+    // Otherwise there are no digits in the string.
+    return junk_string_value_;
+  }
+
+  // Parse exponential part.
+  if (*current == 'e' || *current == 'E') {
+    if (octal && !allow_trailing_junk) return junk_string_value_;
+    if (octal) goto parsing_done;
+    char const * junk_begin = current;
+    ++current;
+    if (current == end) {
+      if (allow_trailing_junk) {
+        current = junk_begin;
+        goto parsing_done;
+      } else {
+        return junk_string_value_;
+      }
+    }
+    char exponen_sign = '+';
+    if (*current == '+' || *current == '-') {
+      exponen_sign = static_cast<char>(*current);
+      ++current;
+      if (current == end) {
+        if (allow_trailing_junk) {
+          current = junk_begin;
+          goto parsing_done;
+        } else {
+          return junk_string_value_;
+        }
+      }
+    }
+
+    if (current == end || *current < '0' || *current > '9') {
+      if (allow_trailing_junk) {
+        current = junk_begin;
+        goto parsing_done;
+      } else {
+        return junk_string_value_;
+      }
+    }
+
+    const int max_exponent = INT_MAX / 2;
+    DOUBLE_CONVERSION_ASSERT(-max_exponent / 2 <= exponent && exponent <= max_exponent / 2);
+    int num = 0;
+    do {
+      // Check overflow.
+      int digit = *current - '0';
+      if (num >= max_exponent / 10
+          && !(num == max_exponent / 10 && digit <= max_exponent % 10)) {
+        num = max_exponent;
+      } else {
+        num = num * 10 + digit;
+      }
+      ++current;
+    } while (current != end && *current >= '0' && *current <= '9');
+
+    exponent += (exponen_sign == '-' ? -num : num);
+  }
+
+  if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+    return junk_string_value_;
+  }
+  if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+    return junk_string_value_;
+  }
+  if (allow_trailing_spaces) {
+    AdvanceToNonspace(&current, end);
+  }
+
+  parsing_done:
+  exponent += insignificant_digits;
+
+  if (octal) {
+    double result;
+    bool result_is_junk;
+    char* start = buffer;
+    result = RadixStringToIeee<3>(&start,
+                                  buffer + buffer_pos,
+                                  sign,
+                                  separator_,
+                                  false, // Don't parse as hex_float.
+                                  allow_trailing_junk,
+                                  junk_string_value_,
+                                  read_as_double,
+                                  &result_is_junk);
+    DOUBLE_CONVERSION_ASSERT(!result_is_junk);
+    *processed_characters_count = static_cast<int>(current - input);
+    return result;
+  }
+
+  if (nonzero_digit_dropped) {
+    buffer[buffer_pos++] = '1';
+    exponent--;
+  }
+
+  DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+  buffer[buffer_pos] = '\0';
+
+  // Code above ensures there are no leading zeros and the buffer has fewer than
+  // kMaxSignificantDecimalDigits characters. Trim trailing zeros.
+  Vector<const char> chars(buffer, buffer_pos);
+  chars = TrimTrailingZeros(chars);
+  exponent += buffer_pos - chars.length();
+
+  double converted;
+  if (read_as_double) {
+    converted = StrtodTrimmed(chars, exponent);
+  } else {
+    converted = StrtofTrimmed(chars, exponent);
+  }
+  *processed_characters_count = static_cast<int>(current - input);
+  return sign? -converted: converted;
+}
+double StringToDoubleConverter::StringToIeee__uc16(
+    uc16 const * input,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const {
+  uc16 const * current = input;
+  uc16 const * end = input + length;
+
+  *processed_characters_count = 0;
+
+  const bool allow_trailing_junk = (flags_ & ALLOW_TRAILING_JUNK) != 0;
+  const bool allow_leading_spaces = (flags_ & ALLOW_LEADING_SPACES) != 0;
+  const bool allow_trailing_spaces = (flags_ & ALLOW_TRAILING_SPACES) != 0;
+  const bool allow_spaces_after_sign = (flags_ & ALLOW_SPACES_AFTER_SIGN) != 0;
+  const bool allow_case_insensitivity = (flags_ & ALLOW_CASE_INSENSITIVITY) != 0;
+
+  // To make sure that iterator dereferencing is valid the following
+  // convention is used:
+  // 1. Each '++current' statement is followed by check for equality to 'end'.
+  // 2. If AdvanceToNonspace returned false then current == end.
+  // 3. If 'current' becomes equal to 'end' the function returns or goes to
+  // 'parsing_done'.
+  // 4. 'current' is not dereferenced after the 'parsing_done' label.
+  // 5. Code before 'parsing_done' may rely on 'current != end'.
+  if (current == end) return empty_string_value_;
+
+  if (allow_leading_spaces || allow_trailing_spaces) {
+    if (!AdvanceToNonspace(&current, end)) {
+      *processed_characters_count = static_cast<int>(current - input);
+      return empty_string_value_;
+    }
+    if (!allow_leading_spaces && (input != current)) {
+      // No leading spaces allowed, but AdvanceToNonspace moved forward.
+      return junk_string_value_;
+    }
+  }
+
+  // Exponent will be adjusted if insignificant digits of the integer part
+  // or insignificant leading zeros of the fractional part are dropped.
+  int exponent = 0;
+  int significant_digits = 0;
+  int insignificant_digits = 0;
+  bool nonzero_digit_dropped = false;
+
+  bool sign = false;
+
+  if (*current == '+' || *current == '-') {
+    sign = (*current == '-');
+    ++current;
+    uc16 const * next_non_space = current;
+    // Skip following spaces (if allowed).
+    if (!AdvanceToNonspace(&next_non_space, end)) return junk_string_value_;
+    if (!allow_spaces_after_sign && (current != next_non_space)) {
+      return junk_string_value_;
+    }
+    current = next_non_space;
+  }
+
+  if (infinity_symbol_ != NULL) {
+    if (ConsumeFirstCharacter(*current, infinity_symbol_, allow_case_insensitivity)) {
+      if (!ConsumeSubString(&current, end, infinity_symbol_, allow_case_insensitivity)) {
+        return junk_string_value_;
+      }
+
+      if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+        return junk_string_value_;
+      }
+      if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+        return junk_string_value_;
+      }
+
+      *processed_characters_count = static_cast<int>(current - input);
+      return sign ? -Double::Infinity() : Double::Infinity();
+    }
+  }
+
+  if (nan_symbol_ != NULL) {
+    if (ConsumeFirstCharacter(*current, nan_symbol_, allow_case_insensitivity)) {
+      if (!ConsumeSubString(&current, end, nan_symbol_, allow_case_insensitivity)) {
+        return junk_string_value_;
+      }
+
+      if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+        return junk_string_value_;
+      }
+      if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+        return junk_string_value_;
+      }
+
+      *processed_characters_count = static_cast<int>(current - input);
+      return sign ? -Double::NaN() : Double::NaN();
+    }
+  }
+
+  bool leading_zero = false;
+  if (*current == '0') {
+    if (Advance(&current, separator_, 10, end)) {
+      *processed_characters_count = static_cast<int>(current - input);
+      return SignedZero(sign);
+    }
+
+    leading_zero = true;
+
+    // It could be hexadecimal value.
+    if (((flags_ & ALLOW_HEX) || (flags_ & ALLOW_HEX_FLOATS)) &&
+        (*current == 'x' || *current == 'X')) {
+      ++current;
+
+      if (current == end) return junk_string_value_;  // "0x"
+
+      bool parse_as_hex_float = (flags_ & ALLOW_HEX_FLOATS) &&
+                IsHexFloatString(current, end, separator_, allow_trailing_junk);
+
+      if (!parse_as_hex_float && !isDigit(*current, 16)) {
+        return junk_string_value_;
+      }
+
+      bool result_is_junk;
+      double result = RadixStringToIeee<4>(&current,
+                                           end,
+                                           sign,
+                                           separator_,
+                                           parse_as_hex_float,
+                                           allow_trailing_junk,
+                                           junk_string_value_,
+                                           read_as_double,
+                                           &result_is_junk);
+      if (!result_is_junk) {
+        if (allow_trailing_spaces) AdvanceToNonspace(&current, end);
+        *processed_characters_count = static_cast<int>(current - input);
+      }
+      return result;
+    }
+
+    // Ignore leading zeros in the integer part.
+    while (*current == '0') {
+      if (Advance(&current, separator_, 10, end)) {
+        *processed_characters_count = static_cast<int>(current - input);
+        return SignedZero(sign);
+      }
+    }
+  }
+
+  bool octal = leading_zero && (flags_ & ALLOW_OCTALS) != 0;
+
+  // The longest form of simplified number is: "-<significant digits>.1eXXX\0".
+  const int kBufferSize = kMaxSignificantDigits + 10;
+  DOUBLE_CONVERSION_STACK_UNINITIALIZED char
+      buffer[kBufferSize];  // NOLINT: size is known at compile time.
+  int buffer_pos = 0;
+
+  // Copy significant digits of the integer part (if any) to the buffer.
+  while (*current >= '0' && *current <= '9') {
+    if (significant_digits < kMaxSignificantDigits) {
+      DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+      buffer[buffer_pos++] = static_cast<char>(*current);
+      significant_digits++;
+      // Will later check if it's an octal in the buffer.
+    } else {
+      insignificant_digits++;  // Move the digit into the exponential part.
+      nonzero_digit_dropped = nonzero_digit_dropped || *current != '0';
+    }
+    octal = octal && *current < '8';
+    if (Advance(&current, separator_, 10, end)) goto parsing_done;
+  }
+
+  if (significant_digits == 0) {
+    octal = false;
+  }
+
+  if (*current == '.') {
+    if (octal && !allow_trailing_junk) return junk_string_value_;
+    if (octal) goto parsing_done;
+
+    if (Advance(&current, separator_, 10, end)) {
+      if (significant_digits == 0 && !leading_zero) {
+        return junk_string_value_;
+      } else {
+        goto parsing_done;
+      }
+    }
+
+    if (significant_digits == 0) {
+      // octal = false;
+      // Integer part consists of 0 or is absent. Significant digits start after
+      // leading zeros (if any).
+      while (*current == '0') {
+        if (Advance(&current, separator_, 10, end)) {
+          *processed_characters_count = static_cast<int>(current - input);
+          return SignedZero(sign);
+        }
+        exponent--;  // Move this 0 into the exponent.
+      }
+    }
+
+    // There is a fractional part.
+    // We don't emit a '.', but adjust the exponent instead.
+    while (*current >= '0' && *current <= '9') {
+      if (significant_digits < kMaxSignificantDigits) {
+        DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+        buffer[buffer_pos++] = static_cast<char>(*current);
+        significant_digits++;
+        exponent--;
+      } else {
+        // Ignore insignificant digits in the fractional part.
+        nonzero_digit_dropped = nonzero_digit_dropped || *current != '0';
+      }
+      if (Advance(&current, separator_, 10, end)) goto parsing_done;
+    }
+  }
+
+  if (!leading_zero && exponent == 0 && significant_digits == 0) {
+    // If leading_zeros is true then the string contains zeros.
+    // If exponent < 0 then string was [+-]\.0*...
+    // If significant_digits != 0 the string is not equal to 0.
+    // Otherwise there are no digits in the string.
+    return junk_string_value_;
+  }
+
+  // Parse exponential part.
+  if (*current == 'e' || *current == 'E') {
+    if (octal && !allow_trailing_junk) return junk_string_value_;
+    if (octal) goto parsing_done;
+    uc16 const * junk_begin = current;
+    ++current;
+    if (current == end) {
+      if (allow_trailing_junk) {
+        current = junk_begin;
+        goto parsing_done;
+      } else {
+        return junk_string_value_;
+      }
+    }
+    char exponen_sign = '+';
+    if (*current == '+' || *current == '-') {
+      exponen_sign = static_cast<char>(*current);
+      ++current;
+      if (current == end) {
+        if (allow_trailing_junk) {
+          current = junk_begin;
+          goto parsing_done;
+        } else {
+          return junk_string_value_;
+        }
+      }
+    }
+
+    if (current == end || *current < '0' || *current > '9') {
+      if (allow_trailing_junk) {
+        current = junk_begin;
+        goto parsing_done;
+      } else {
+        return junk_string_value_;
+      }
+    }
+
+    const int max_exponent = INT_MAX / 2;
+    DOUBLE_CONVERSION_ASSERT(-max_exponent / 2 <= exponent && exponent <= max_exponent / 2);
+    int num = 0;
+    do {
+      // Check overflow.
+      int digit = *current - '0';
+      if (num >= max_exponent / 10
+          && !(num == max_exponent / 10 && digit <= max_exponent % 10)) {
+        num = max_exponent;
+      } else {
+        num = num * 10 + digit;
+      }
+      ++current;
+    } while (current != end && *current >= '0' && *current <= '9');
+
+    exponent += (exponen_sign == '-' ? -num : num);
+  }
+
+  if (!(allow_trailing_spaces || allow_trailing_junk) && (current != end)) {
+    return junk_string_value_;
+  }
+  if (!allow_trailing_junk && AdvanceToNonspace(&current, end)) {
+    return junk_string_value_;
+  }
+  if (allow_trailing_spaces) {
+    AdvanceToNonspace(&current, end);
+  }
+
+  parsing_done:
+  exponent += insignificant_digits;
+
+  if (octal) {
+    double result;
+    bool result_is_junk;
+    char* start = buffer;
+    result = RadixStringToIeee<3>(&start,
+                                  buffer + buffer_pos,
+                                  sign,
+                                  separator_,
+                                  false, // Don't parse as hex_float.
+                                  allow_trailing_junk,
+                                  junk_string_value_,
+                                  read_as_double,
+                                  &result_is_junk);
+    DOUBLE_CONVERSION_ASSERT(!result_is_junk);
+    *processed_characters_count = static_cast<int>(current - input);
+    return result;
+  }
+
+  if (nonzero_digit_dropped) {
+    buffer[buffer_pos++] = '1';
+    exponent--;
+  }
+
+  DOUBLE_CONVERSION_ASSERT(buffer_pos < kBufferSize);
+  buffer[buffer_pos] = '\0';
+
+  // Code above ensures there are no leading zeros and the buffer has fewer than
+  // kMaxSignificantDecimalDigits characters. Trim trailing zeros.
+  Vector<const char> chars(buffer, buffer_pos);
+  chars = TrimTrailingZeros(chars);
+  exponent += buffer_pos - chars.length();
+
+  double converted;
+  if (read_as_double) {
+    converted = StrtodTrimmed(chars, exponent);
+  } else {
+    converted = StrtofTrimmed(chars, exponent);
+  }
+  *processed_characters_count = static_cast<int>(current - input);
+  return sign? -converted: converted;
+}
+#endif
 
 double StringToDoubleConverter::StringToDouble(
     const char* buffer,
     int length,
     int* processed_characters_count) const {
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  return StringToIeee__char(buffer, length, true, processed_characters_count);
+#else
   return StringToIeee(buffer, length, true, processed_characters_count);
+#endif
 }
 
 
@@ -758,7 +1434,11 @@ double StringToDoubleConverter::StringToDouble(
     const uc16* buffer,
     int length,
     int* processed_characters_count) const {
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  return StringToIeee__uc16(buffer, length, true, processed_characters_count);
+#else
   return StringToIeee(buffer, length, true, processed_characters_count);
+#endif
 }
 
 
@@ -766,8 +1446,13 @@ float StringToDoubleConverter::StringToFloat(
     const char* buffer,
     int length,
     int* processed_characters_count) const {
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  return static_cast<float>(StringToIeee__char(buffer, length, false,
+                                         processed_characters_count));
+#else
   return static_cast<float>(StringToIeee(buffer, length, false,
                                          processed_characters_count));
+#endif
 }
 
 
@@ -775,11 +1460,18 @@ float StringToDoubleConverter::StringToFloat(
     const uc16* buffer,
     int length,
     int* processed_characters_count) const {
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  return static_cast<float>(StringToIeee__uc16(buffer, length, false,
+                                         processed_characters_count));
+#else
   return static_cast<float>(StringToIeee(buffer, length, false,
                                          processed_characters_count));
+#endif
 }
 
 
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+#else
 template<>
 double StringToDoubleConverter::StringTo<double>(
     const char* buffer,
@@ -814,5 +1506,6 @@ float StringToDoubleConverter::StringTo<float>(
     int* processed_characters_count) const {
     return StringToFloat(buffer, length, processed_characters_count);
 }
+#endif
 
 }  // namespace double_conversion

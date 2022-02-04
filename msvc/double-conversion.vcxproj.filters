@@ -39,6 +39,12 @@
     <ClCompile Include="..\double-conversion\string-to-double.cc">
       <Filter>Source Files</Filter>
     </ClCompile>
+	<ClCompile Include="..\double-conversion\diy-fp.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+	<ClCompile Include="..\double-conversion\ieee.cc">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\double-conversion\bignum.h">

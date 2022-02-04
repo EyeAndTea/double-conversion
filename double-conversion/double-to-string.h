@@ -37,18 +37,18 @@ class DoubleToStringConverter {
   // When calling ToFixed with a double > 10^kMaxFixedDigitsBeforePoint
   // or a requested_digits parameter > kMaxFixedDigitsAfterPoint then the
   // function returns false.
-  static const int kMaxFixedDigitsBeforePoint = 60;
-  static const int kMaxFixedDigitsAfterPoint = 100;
+  static const int kMaxFixedDigitsBeforePoint;
+  static const int kMaxFixedDigitsAfterPoint;
 
   // When calling ToExponential with a requested_digits
   // parameter > kMaxExponentialDigits then the function returns false.
-  static const int kMaxExponentialDigits = 120;
+  static const int kMaxExponentialDigits;
 
   // When calling ToPrecision with a requested_digits
   // parameter < kMinPrecisionDigits or requested_digits > kMaxPrecisionDigits
   // then the function returns false.
-  static const int kMinPrecisionDigits = 1;
-  static const int kMaxPrecisionDigits = 120;
+  static const int kMinPrecisionDigits;
+  static const int kMaxPrecisionDigits;
 
   // The maximal number of digits that are needed to emit a double in base 10.
   // A higher precision can be achieved by using more digits, but the shortest
@@ -56,13 +56,13 @@ class DoubleToStringConverter {
   // kBase10MaximalLength.
   // Note that DoubleToAscii null-terminates its input. So the given buffer
   // should be at least kBase10MaximalLength + 1 characters long.
-  static const int kBase10MaximalLength = 17;
+  static const int kBase10MaximalLength;
 
   // The maximal number of digits that are needed to emit a single in base 10.
   // A higher precision can be achieved by using more digits, but the shortest
   // accurate representation of any single will never use more digits than
   // kBase10MaximalLengthSingle.
-  static const int kBase10MaximalLengthSingle = 9;
+  static const int kBase10MaximalLengthSingle;
 
   // The length of the longest string that 'ToShortest' can produce when the
   // converter is instantiated with EcmaScript defaults (see
@@ -70,7 +70,7 @@ class DoubleToStringConverter {
   // This value does not include the trailing '\0' character.
   // This amount of characters is needed for negative values that hit the
   // 'decimal_in_shortest_low' limit. For example: "-0.0000033333333333333333"
-  static const int kMaxCharsEcmaScriptShortest = 25;
+  static const int kMaxCharsEcmaScriptShortest;
 
   enum Flags {
     NO_FLAGS = 0,

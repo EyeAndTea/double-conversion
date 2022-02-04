@@ -49,7 +49,7 @@ class StringToDoubleConverter {
     ALLOW_HEX_FLOATS = 128,
   };
 
-  static const uc16 kNoSeparator = '\0';
+  static const uc16 kNoSeparator;
 
   // Flags should be a bit-or combination of the possible Flags-enum.
   //  - NO_FLAGS: no special flags.
@@ -204,6 +204,8 @@ class StringToDoubleConverter {
                       int length,
                       int* processed_characters_count) const;
 
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+#else
   // Same as StringToDouble for T = double, and StringToFloat for T = float.
   template <typename T>
   T StringTo(const char* buffer,
@@ -215,6 +217,7 @@ class StringToDoubleConverter {
   T StringTo(const uc16* buffer,
              int length,
              int* processed_characters_count) const;
+#endif
 
  private:
   const int flags_;
@@ -229,6 +232,18 @@ class StringToDoubleConverter {
                       int length,
                       bool read_as_double,
                       int* processed_characters_count) const;
+#if(defined(_MSC_VER) && (_MSC_VER <= 1200))
+  double StringToDoubleConverter::StringToIeee__char(
+    char const * input,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const;
+  double StringToDoubleConverter::StringToIeee__uc16(
+    uc16 const * input,
+    int length,
+    bool read_as_double,
+    int* processed_characters_count) const;
+#endif
 
   DOUBLE_CONVERSION_DISALLOW_IMPLICIT_CONSTRUCTORS(StringToDoubleConverter);
 };

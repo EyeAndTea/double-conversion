@@ -40,7 +40,7 @@ namespace double_conversion {
 // doubles (NaN and Infinity).
 class DiyFp {
  public:
-  static const int kSignificandSize = 64;
+  static const int kSignificandSize;
 
   DiyFp() : f_(0), e_(0) {}
   DiyFp(const uint64_t significand, const int32_t exponent) : f_(significand), e_(exponent) {}
@@ -126,7 +126,7 @@ class DiyFp {
   void set_e(int32_t new_value) { e_ = new_value; }
 
  private:
-  static const uint64_t kUint64MSB = DOUBLE_CONVERSION_UINT64_2PART_C(0x80000000, 00000000);
+  static const uint64_t kUint64MSB;
 
   uint64_t f_;
   int32_t e_;
