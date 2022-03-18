@@ -31,6 +31,15 @@
 #include "bignum.h"
 #include "utils.h"
 
+#ifdef _MSC_VER
+#  pragma warning(push)
+   // Newer compilers are better able to detect when this warning is not needed.
+   // For now assuming that this happens at Visual Studio 2015
+#  if _MSC_VER < 1900
+#    pragma warning(disable: 4244)
+#  endif
+#endif
+
 namespace double_conversion {
 
 const int Bignum::kMaxSignificantBits = 3584;
@@ -807,3 +816,8 @@ void Bignum::SubtractTimes(const Bignum& other, const int factor) {
 
 
 }  // namespace double_conversion
+
+
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#endif

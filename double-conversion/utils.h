@@ -28,6 +28,8 @@
 #ifndef DOUBLE_CONVERSION_UTILS_H_
 #define DOUBLE_CONVERSION_UTILS_H_
 
+#include "double-conversion-user-config.h"
+
 // Use DOUBLE_CONVERSION_NON_PREFIXED_MACROS to get unprefixed macros as was
 // the case in double-conversion releases prior to 3.1.6
 
@@ -162,7 +164,9 @@ int main(int argc, char** argv) {
 #define CORRECT_DOUBLE_OPERATIONS DOUBLE_CONVERSION_CORRECT_DOUBLE_OPERATIONS
 #endif
 
-#if defined(_WIN32) && !defined(__MINGW32__)
+#if !defined(DOUBLE_CONVERSION_CONFIG_STDINT_HEADER_IS_AVAILABLE) && \
+    defined(_WIN32) && !defined(__MINGW32__)
+    
 
 typedef signed char int8_t;
 typedef unsigned char uint8_t;

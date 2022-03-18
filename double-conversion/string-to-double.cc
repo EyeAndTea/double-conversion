@@ -36,12 +36,14 @@
 #include "utils.h"
 
 #ifdef _MSC_VER
-#  if _MSC_VER >= 1900
+//#  if _MSC_VER >= 1900
 // Fix MSVC >= 2015 (_MSC_VER == 1900) warning
 // C4244: 'argument': conversion from 'const uc16' to 'char', possible loss of data
 // against Advance and friends, when instantiated with **it as char, not uc16.
- __pragma(warning(disable: 4244))
-#  endif
+// __pragma(warning(disable: 4244))
+//#  endif
+#pragma warning(push)
+#pragma warning(disable: 4244)
 #  if _MSC_VER <= 1700 // VS2012, see IsDecimalDigitForRadix warning fix, below
 #    define VS2012_RADIXWARN
 #  endif
@@ -1509,3 +1511,7 @@ float StringToDoubleConverter::StringTo<float>(
 #endif
 
 }  // namespace double_conversion
+
+#if(defined(_MSC_VER))
+#pragma warning(pop)
+#endif
